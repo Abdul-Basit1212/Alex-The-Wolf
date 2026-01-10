@@ -1,7 +1,10 @@
 #pragma once
+#ifdef NOMINMAX
+#undef NOMINMAX
+#endif
+#define NOMINMAX
 #ifndef GAMEENGINE_H
 #define GAMEENGINE_H
-#define NOMINMAX
 #include <windows.h> 
 #include <mmsystem.h> 
 #include <string>
@@ -10,12 +13,7 @@
 #include <iostream>
 #include <algorithm>
 #include <deque>
-#include <windows.h> // Required for Audio
-#include <mmsystem.h> // Required for Audio
-
-// ==========================================
-// ENUMS & DATA STRUCTURES
-// ==========================================
+#include "Inventory.h" 
 
 enum GameState {
     STATE_MENU,      
@@ -25,54 +23,6 @@ enum GameState {
     STATE_REST,      
     STATE_SCAVENGE,  
     STATE_OUTRO
-};
-
-enum ItemType { FOOD, TOOL, WEAPON, HERB, QUEST };
-
-struct Item {
-    std::string name;
-    ItemType type;
-    int effectValue;
-    int quantity;
-
-    Item(std::string n = "", ItemType t = TOOL, int v = 0, int q = 1)
-        : name(n), type(t), effectValue(v), quantity(q) {}
-};
-
-class Inventory {
-private:
-    std::vector<Item> items;
-public:
-    void addItem(Item newItem) {
-        for (auto& item : items) {
-            if (item.name == newItem.name) {
-                item.quantity += newItem.quantity;
-                return;
-            }
-        }
-        items.push_back(newItem);
-    }
-
-    bool removeOne(std::string itemName) {
-        for (auto it = items.begin(); it != items.end(); ++it) {
-            if (it->name == itemName) {
-                it->quantity--;
-                if (it->quantity <= 0) items.erase(it);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool hasItem(std::string name) {
-        for (const auto& item : items) {
-            if (item.name == name) return true;
-        }
-        return false;
-    }
-
-    void clear() { items.clear(); }
-    std::vector<Item> toVector() { return items; }
 };
 
 struct WolfStats {
@@ -121,7 +71,7 @@ struct GameStateData {
     int currentNodeID;
     int returnToNodeID;
     WolfStats stats;
-    std::vector<Item> inventorySnapshot;
+    std::vector<Item> inventorySnapshot; // Works because Item is in Inventory.h
     std::vector<std::string> logSnapshot;
 };
 
@@ -139,71 +89,71 @@ public:
     void clear() { eventQueue.clear(); }
 };
 
-// ==========================================
-// GAME ENGINE CLASS
-// ==========================================
-
 class GameEngine {
 public:
-    // Core Data
     std::map<int, StoryNode*> storyMap;
     StoryNode* currentNode;
     WolfStats currentStats;
-    Inventory inventory;
+    
+    // UPDATED: Use the class from Inventory.h
+    InventoryList inventory; 
+    
     std::vector<std::string> gameLog;
     std::deque<GameStateData> undoStack;
     EventSystem eventSystem;
     
-    // State Management
     GameState currentState;
     int returnToNodeID = -1;
     bool gameOver = false;
     bool gameWon = false;
 
-    // Intro Story Data
+    // Typewriter Data
+    std::string currentDisplayedText;
+    std::string targetText;
+    int textCharIndex = 0;
+    float textTimer = 0.0f;
+    bool textFinished = false;
+
     std::vector<std::string> introLines;
     int introLineIndex = 0;
 
-    // Graphics Data
     std::map<std::string, unsigned int> textureCache;
     std::map<std::string, std::pair<int, int>> textureSizeCache;
 
     // Audio Data
     std::string currentMusicAlias = "";
+    bool isMuted = false;
 
-    // Core Functions
     void initGame();
     void cleanup();
     
-    // Logic
     void makeChoice(int choiceIndex);
     void checkForRandomEvents(int nextNodeID);
+    void updateTypewriter(float deltaTime); 
+    void skipTypewriter(); 
     
-    // Actions
     bool performGlobalRest();
     bool performGlobalScavenge();
     void toggleMap();
     void useItem(std::string itemName);
 
-    // Save/Load/Undo
     void saveState();
     void undoLastAction();
     void saveGameToFile(std::string filename = "savegame.txt");
     void loadGameFromFile(std::string filename = "savegame.txt");
 
-    // Texture Utils
     unsigned int getNodeTexture(std::string path);
     unsigned int getGeneralTexture(std::string filename); 
     unsigned int loadTextureFromFile(const char* filename); 
     std::pair<int, int> getTextureSize(std::string path);
 
-    // Audio Utils (NEW)
+    // Audio Functions
     void playSound(std::string filename, std::string alias, bool loop = false);
     void stopSound(std::string alias);
     void playBackgroundMusic(std::string trackName);
     void updateMusicSystem();
+    void toggleMute();
 
-    // Helpers
     std::string getFinalTitle();
 
 private:

@@ -1,18 +1,35 @@
 #ifndef INVENTORY_H
 #define INVENTORY_H
 
-#include "GameData.h"
-#include <iostream>
+#include <string>
 #include <vector>
+#include <iostream>
 
-// Linked List Node
+// ==========================================
+// 1. MOVE ITEM DEFINITIONS HERE
+// ==========================================
+enum ItemType { FOOD, TOOL, WEAPON, HERB, QUEST };
+
+struct Item {
+    std::string name;
+    ItemType type;
+    int effectValue;
+    int quantity;
+
+    Item(std::string n = "", ItemType t = TOOL, int v = 0, int q = 1)
+        : name(n), type(t), effectValue(v), quantity(q) {}
+};
+
+// ==========================================
+// 2. INVENTORY LIST DEFINITIONS
+// ==========================================
+
 struct InventoryNode {
     Item data;
     InventoryNode* next;
     InventoryNode(Item item) : data(item), next(nullptr) {}
 };
 
-// Linked List Class
 class InventoryList {
 private:
     InventoryNode* head;

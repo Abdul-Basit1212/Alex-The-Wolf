@@ -28,7 +28,7 @@
 
                 // --- 4. OUTPUT ---
                 "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
+                "${workspaceFolder}\\AlexTheWolf.exe",
 
                 // --- 5. LIBRARIES ---
                 "-L${workspaceFolder}/lib",

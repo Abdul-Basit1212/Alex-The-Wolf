@@ -6,14 +6,14 @@
 #include <vector>
 #include <fstream> 
 #include <glfw3.h> 
-#include <windows.h> // For Audio
+#include <windows.h> 
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
 
 // =========================================================
-// TEXTURE UTILS
+// TEXTURE & AUDIO
 // =========================================================
 
 unsigned int GameEngine::getNodeTexture(std::string path) {
@@ -34,172 +34,120 @@ unsigned int GameEngine::getGeneralTexture(std::string filename) {
 
 unsigned int GameEngine::loadTextureFromFile(const char* filename) {
     std::string fn = filename;
-    
     std::vector<std::string> pathsToCheck = {
-        fn,                                     
-        "Icons/" + fn,                          
-        "Images/" + fn,                         
-        "Assets/Icons/" + fn,                   
-        "Assets/Images/" + fn,                  
-        "../Icons/" + fn,                       
-        "../Images/" + fn,                      
-        "../Assets/Icons/" + fn,                
-        "../Assets/Images/" + fn                
+        fn, "Icons/" + fn, "Images/" + fn, "Assets/Icons/" + fn, "Assets/Images/" + fn,
+        "../Icons/" + fn, "../Images/" + fn, "../Assets/Icons/" + fn, "../Assets/Images/" + fn
     };
-
     std::string validPath = "";
     for (const auto& path : pathsToCheck) {
         std::ifstream check(path);
-        if (check.good()) {
-            validPath = path;
-            break;
-        }
+        if (check.good()) { validPath = path; break; }
     }
-
-    if (validPath.empty()) {
-        std::cout << "Texture not found: " << filename << std::endl; 
-        return 0; 
-    }
-
+    if (validPath.empty()) return 0;
     int width, height, nrChannels;
     unsigned char* data = stbi_load(validPath.c_str(), &width, &height, &nrChannels, 0);
     if (!data) return 0; 
-    
     textureSizeCache[filename] = {width, height};
     unsigned int textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
-    
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    if (nrChannels == 3)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    else if (nrChannels == 4)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
+    if (nrChannels == 3) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    else if (nrChannels == 4) glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     stbi_image_free(data);
     return textureID;
 }
 
-std::pair<int, int> GameEngine::getTextureSize(std::string path) { 
-    if(textureSizeCache.count(path)) return textureSizeCache[path];
-    return {0, 0}; 
+// --- AUDIO SYSTEM ---
+
+void GameEngine::toggleMute() {
+    isMuted = !isMuted;
+    if (isMuted) {
+        stopSound("bgm"); 
+    } else {
+        currentMusicAlias = ""; 
+        updateMusicSystem();
+    }
 }
 
-// =========================================================
-// AUDIO SYSTEM
-// =========================================================
-
-// =========================================================
-// AUDIO SYSTEM
-// =========================================================
-
 void GameEngine::playSound(std::string filename, std::string alias, bool loop) {
-    // 1. Close any existing sound on this alias to prevent conflicts
-    std::string stopCmd = "close " + alias;
-    mciSendString(stopCmd.c_str(), NULL, 0, NULL);
-
-    // 2. Smart Search for the Audio File
-    std::string fn = filename;
-    std::vector<std::string> pathsToCheck = {
-        "Assets/Sounds/" + fn,          // <--- Your new folder
-        "assets/sounds/" + fn,          // Lowercase check
-        "Sounds/" + fn,                 // Legacy check
-        "../Assets/Sounds/" + fn,       // Up one level (for build folders)
-        "../assets/sounds/" + fn,
-        fn                              // Root
-    };
-
-    std::string validPath = "";
-    for (const auto& path : pathsToCheck) {
-        std::ifstream check(path);
-        if (check.good()) {
-            validPath = path;
-            // Debug output to confirm it found the file
-            std::cout << "Loaded Sound: " << validPath << std::endl; 
-            break;
-        }
-    }
-
-    if (validPath.empty()) {
-        std::cout << "Sound NOT found: " << filename << " (Checked Assets/Sounds/)" << std::endl;
-        return;
-    }
-
-    // 3. Open the file found at 'validPath'
-    std::string openCmd = "open \"" + validPath + "\" type mpegvideo alias " + alias;
-    MCIERROR err = mciSendString(openCmd.c_str(), NULL, 0, NULL);
-    if (err) {
-        char errBuf[256];
-        mciGetErrorString(err, errBuf, 256);
-        std::cout << "Audio Error (Open): " << errBuf << std::endl;
-        return;
-    }
-
-    // 4. Play
+    std::string stopCmd = "close " + alias; mciSendString(stopCmd.c_str(), NULL, 0, NULL);
+    std::string path = "Sounds/" + filename;
+    std::ifstream check(path); if (!check.good()) path = "Assets/Sounds/" + filename; 
+    std::string openCmd = "open \"" + path + "\" type mpegvideo alias " + alias;
+    mciSendString(openCmd.c_str(), NULL, 0, NULL);
     std::string playCmd = "play " + alias;
     if (loop) playCmd += " repeat";
     mciSendString(playCmd.c_str(), NULL, 0, NULL);
 }
 
 void GameEngine::stopSound(std::string alias) {
-    std::string cmd = "close " + alias;
-    mciSendString(cmd.c_str(), NULL, 0, NULL);
+    std::string cmd = "close " + alias; mciSendString(cmd.c_str(), NULL, 0, NULL);
 }
 
 void GameEngine::playBackgroundMusic(std::string trackName) {
+    if (isMuted) return; 
     if (currentMusicAlias == trackName) return; 
-
     if (!currentMusicAlias.empty()) stopSound("bgm");
-
     currentMusicAlias = trackName;
-    if (!trackName.empty()) {
-        playSound(trackName, "bgm", true);
-    }
+    if (!trackName.empty()) playSound(trackName, "bgm", true);
 }
 
 void GameEngine::updateMusicSystem() {
+    if (isMuted) return;
+
     std::string desiredTrack = "";
 
-    if (currentState == STATE_MENU || currentState == STATE_INTRO) {
-        desiredTrack = "menu_bgm.mp3";
-    }
-    else if (gameOver) {
-        // Check if it's the "Defeat" (Boss) or "Died" (General) node
-        if (currentNode && currentNode->id == 997) desiredTrack = "victory_bgm.mp3"; // Boss Defeat music
-        else desiredTrack = "victory_bgm.mp3"; // Or a specific "died" track if you have one
+    if (gameOver) {
+        desiredTrack = "defeat_bgm.mp3"; 
     }
     else if (gameWon) {
         desiredTrack = "victory_bgm.mp3";
     }
-    else if (currentState == STATE_GAMEPLAY || currentState == STATE_MAP || currentState == STATE_REST || currentState == STATE_SCAVENGE) {
-        if (currentNode) {
-            if (currentNode->id >= 26 && currentNode->id <= 30) {
-                desiredTrack = "endgame_bgm.mp3"; 
-            } else {
-                desiredTrack = "main_bgm.mp3"; 
-            }
-        }
+    else if (currentState == STATE_MENU || currentState == STATE_INTRO) {
+        desiredTrack = "menu_bgm.mp3";
     }
-
+    else {
+        desiredTrack = "main_bgm.mp3"; 
+    }
     playBackgroundMusic(desiredTrack);
 }
 
 // =========================================================
-// INPUT HANDLING
+// TYPEWRITER
+// =========================================================
+
+void GameEngine::updateTypewriter(float deltaTime) {
+    if (textFinished) return;
+    textTimer += deltaTime;
+    if (textTimer > 0.02f) { 
+        textTimer = 0.0f;
+        if (textCharIndex < targetText.length()) {
+            textCharIndex++;
+            currentDisplayedText = targetText.substr(0, textCharIndex);
+        } else {
+            textFinished = true;
+        }
+    }
+}
+
+void GameEngine::skipTypewriter() {
+    textCharIndex = targetText.length();
+    currentDisplayedText = targetText;
+    textFinished = true;
+}
+
+// =========================================================
+// INPUT & SAVE
 // =========================================================
 
 void GameEngine::toggleMap() {
     if (currentState == STATE_GAMEPLAY) currentState = STATE_MAP;
     else if (currentState == STATE_MAP) currentState = STATE_GAMEPLAY;
 }
-
-// =========================================================
-// UNDO & SAVE SYSTEM
-// =========================================================
 
 void GameEngine::saveState() {
     GameStateData state;
@@ -208,57 +156,38 @@ void GameEngine::saveState() {
     state.stats = currentStats;
     state.inventorySnapshot = inventory.toVector(); 
     state.logSnapshot = gameLog; 
-
     undoStack.push_back(state);
     if (undoStack.size() > 5) undoStack.pop_front();
 }
 
 void GameEngine::undoLastAction() {
-    if (undoStack.empty()) {
-        gameLog.push_back(">> Cannot Undo (Stack Empty)");
-        return;
-    }
-
+    if (undoStack.empty()) { gameLog.push_back(">> Cannot Undo"); return; }
     GameStateData state = undoStack.back();
     undoStack.pop_back();
-
-    if (storyMap.count(state.currentNodeID)) 
-        currentNode = storyMap[state.currentNodeID];
-    
+    if (storyMap.count(state.currentNodeID)) currentNode = storyMap[state.currentNodeID];
     returnToNodeID = state.returnToNodeID;
     currentStats = state.stats;
     gameLog = state.logSnapshot;
-    gameLog.push_back(">> UNDO PERFORMED");
-
     inventory.clear();
-    for (const auto& item : state.inventorySnapshot) {
-        inventory.addItem(item);
-    }
+    for (const auto& item : state.inventorySnapshot) inventory.addItem(item);
     
-    gameOver = false; 
-    gameWon = false;
+    targetText = currentNode->text; textCharIndex = 0; currentDisplayedText = ""; textFinished = false;
+    gameOver = false; gameWon = false;
     updateMusicSystem(); 
 }
 
 void GameEngine::saveGameToFile(std::string filename) {
     if (filename.empty()) filename = "savegame";
     if (filename.find(".txt") == std::string::npos) filename += ".txt";
-
     std::ofstream file(filename);
     if (!file.is_open()) return;
-    
     file << (currentNode ? currentNode->id : 1) << "\n";
-    file << currentStats.health << " " << currentStats.hunger << " " 
-         << currentStats.energy << " " << currentStats.reputation << " " 
-         << currentStats.dayCount << "\n";
-    
+    file << currentStats.health << " " << currentStats.hunger << " " << currentStats.energy << " " << currentStats.reputation << " " << currentStats.dayCount << "\n";
     file << currentStats.eventHappened << "\n"; 
-
     std::vector<Item> items = inventory.toVector();
     file << items.size() << "\n";
     for (const auto& item : items) {
-        file << item.name << "\n" << item.type << "\n" 
-             << item.effectValue << "\n" << item.quantity << "\n";
+        file << item.name << "\n" << item.type << "\n" << item.effectValue << "\n" << item.quantity << "\n";
     }
     file.close();
     gameLog.push_back(">> GAME SAVED to " + filename);
@@ -266,45 +195,27 @@ void GameEngine::saveGameToFile(std::string filename) {
 
 void GameEngine::loadGameFromFile(std::string filename) {
     std::ifstream file(filename);
-    if (!file.is_open()) {
-        gameLog.push_back(">> SAVE FILE NOT FOUND");
-        return;
-    }
-
-    int nodeID;
-    file >> nodeID;
+    if (!file.is_open()) { gameLog.push_back(">> SAVE FILE NOT FOUND"); return; }
+    int nodeID; file >> nodeID;
     if (storyMap.count(nodeID)) currentNode = storyMap[nodeID];
-
-    file >> currentStats.health >> currentStats.hunger 
-         >> currentStats.energy >> currentStats.reputation 
-         >> currentStats.dayCount;
-    
-    if (file.peek() != EOF) {
-        file >> currentStats.eventHappened;
-    } else {
-        currentStats.eventHappened = false;
-    }
-
+    file >> currentStats.health >> currentStats.hunger >> currentStats.energy >> currentStats.reputation >> currentStats.dayCount;
+    if (file.peek() != EOF) file >> currentStats.eventHappened; else currentStats.eventHappened = false;
     inventory.clear();
-    int count;
-    file >> count;
+    int count; file >> count;
     std::string temp; std::getline(file, temp); 
-
     for(int i=0; i<count; i++) {
-        std::string name;
-        int type, val, qty;
-        std::getline(file, name);
-        file >> type >> val >> qty;
-        std::getline(file, temp); 
+        std::string name; int type, val, qty;
+        std::getline(file, name); file >> type >> val >> qty; std::getline(file, temp); 
         inventory.addItem(Item(name, (ItemType)type, val, qty));
     }
     file.close();
+    targetText = currentNode->text; textCharIndex = 0; currentDisplayedText = ""; textFinished = false;
     gameLog.push_back(">> GAME LOADED");
     updateMusicSystem(); 
 }
 
 // =========================================================
-// GAME ACTIONS
+// ACTIONS
 // =========================================================
 
 void ClampStats(WolfStats& s) {
@@ -322,15 +233,13 @@ std::string GameEngine::getFinalTitle() {
 
 bool GameEngine::performGlobalRest() {
     if (currentState != STATE_GAMEPLAY) return false;
-    
-    if ((currentNode->id - currentStats.lastRestLevel) < 5) {
-        gameLog.push_back("Cannot Rest: Unsafe area or rested recently.");
+    // FIXED: CAP IS 5 LEVELS
+    if ((currentNode->id - currentStats.lastRestLevel) < 5) { 
+        gameLog.push_back("Cannot Rest: Unsafe area or rested recently."); 
         return false; 
     }
-
     currentState = STATE_REST; 
     saveState();
-    
     currentStats.lastRestLevel = currentNode->id;
     currentStats.energy = std::min(100, currentStats.energy + 40);
     currentStats.health = std::min(100, currentStats.health + 20); 
@@ -343,50 +252,53 @@ bool GameEngine::performGlobalRest() {
 
 bool GameEngine::performGlobalScavenge() {
     if (currentState != STATE_GAMEPLAY) return false;
-
-    if ((currentNode->id - currentStats.lastScavengeLevel) < 3) {
-        gameLog.push_back("Nothing to scavenge here.");
-        return false;
-    }
-
-    if (currentStats.energy <= 10) { 
-        gameLog.push_back("Too tired to scavenge."); 
-        return false;
-    }
+    if ((currentNode->id - currentStats.lastScavengeLevel) < 3) { gameLog.push_back("Nothing to scavenge here."); return false; }
+    if (currentStats.energy <= 10) { gameLog.push_back("Too tired to scavenge."); return false; }
     
     currentState = STATE_SCAVENGE; 
     saveState();
-    
     currentStats.lastScavengeLevel = currentNode->id;
     currentStats.energy -= 10;
     currentStats.dayCount++;
     
     int randVal = rand() % 100;
-    if (randVal < 60) {
+    // FIXED: 20% Chance of finding NOTHING
+    // 0-39 (40%) = Herbs
+    // 40-79 (40%) = Meat
+    // 80-99 (20%) = Nothing
+    if (randVal < 40) {
+        inventory.addItem(Item("Herbs", HERB, 50, 1));
+        gameLog.push_back("Found Herbs!");
+    }
+    else if (randVal < 80) {
         inventory.addItem(Item("Meat", FOOD, 30, 1));
         gameLog.push_back("Found Meat!");
-    } else {
-        gameLog.push_back("Found nothing.");
+    } 
+    else { 
+        gameLog.push_back("Found nothing."); 
     }
+    
     ClampStats(currentStats);
     return true;
 }
 
 void GameEngine::useItem(std::string itemName) {
-    if (itemName == "Map") {
-        toggleMap(); 
-        return;
-    }
+    if (itemName == "Map") { toggleMap(); return; }
     if (inventory.removeOne(itemName)) {
         if (itemName == "Meat") {
             currentStats.hunger = std::max(0, currentStats.hunger - 30);
             gameLog.push_back("Ate Meat (-30 Hunger).");
         }
+        else if (itemName == "Herbs") {
+            currentStats.health = std::min(100, currentStats.health + 50);
+            gameLog.push_back("Used Herbs (+50 HP).");
+        }
+        ClampStats(currentStats);
     }
 }
 
 // =========================================================
-// CORE LOGIC & RANDOM EVENTS
+// LOGIC
 // =========================================================
 
 void GameEngine::makeChoice(int choiceIndex) {
@@ -396,104 +308,102 @@ void GameEngine::makeChoice(int choiceIndex) {
     currentStats.hunger += 5; 
     currentStats.energy -= 5; 
 
+    // STOP SOUND ON MOVE
+    stopSound("sfx");
+
     if (choiceIndex >= currentNode->children.size()) return;
     int nextID = currentNode->children[choiceIndex].second;
     
-    // --- 1. HANDLE RETURN FROM EVENT (-99) ---
+    // --- LEVEL 9 SPECIAL CHECK (HEAL) ---
+    // If player chooses "Heal" at Level 9, verify they have Herbs.
+    if (currentNode->id == 9 && choiceIndex == 0) { // Assuming index 0 is "Heal Wounds"
+        if (inventory.hasItem("Herbs")) {
+            inventory.removeOne("Herbs");
+            currentStats.health = std::min(100, currentStats.health + 30);
+            gameLog.push_back("Used Herbs to heal wounds.");
+        } else {
+            gameLog.push_back("You have no herbs! Wounds fester.");
+            currentStats.health -= 10;
+        }
+    }
+
+    // Event Return
     if (nextID == -99) {
         if (returnToNodeID != -1 && storyMap.count(returnToNodeID)) {
             currentNode = storyMap[returnToNodeID];
             returnToNodeID = -1; 
             gameLog.push_back("You continue on your journey...");
-        } else {
-            currentNode = storyMap[1]; 
-        }
+        } else { currentNode = storyMap[1]; }
+        targetText = currentNode->text; textCharIndex = 0; currentDisplayedText = ""; textFinished = false;
         updateMusicSystem();
         return; 
     }
 
-    // --- 2. RANDOM EVENT TRIGGER ---
+    // Event Trigger Logic
     bool isTransitioningToEnding = (nextID == 997 || nextID == 999 || nextID == 996);
     int eventID = -1;
-
     if (!isTransitioningToEnding && nextID != -99) {
-        if (nextID >= 9 && nextID <= 12 && !currentStats.eventHappened) {
-            int roll = rand() % 100;
-            if (roll < 30) eventID = 901; 
-        }
-        else if (nextID >= 13 && nextID <= 16 && !currentStats.eventHappened) {
-            int roll = rand() % 100;
-            if (roll < 30) eventID = 902;
-        }
-        else if (nextID == 17 && !currentStats.eventHappened) {
-            eventID = 902; 
-        }
-
+        if (nextID >= 9 && nextID <= 12 && !currentStats.eventHappened) { if (rand() % 100 < 30) eventID = 901; }
+        else if (nextID >= 13 && nextID <= 16 && !currentStats.eventHappened) { if (rand() % 100 < 30) eventID = 902; }
+        else if (nextID == 17 && !currentStats.eventHappened) { eventID = 902; }
         if (eventID != -1) {
-            returnToNodeID = nextID; 
-            nextID = eventID;        
-            currentStats.eventHappened = true; 
+            returnToNodeID = nextID; nextID = eventID; currentStats.eventHappened = true; 
             gameLog.push_back(">> A RANDOM EVENT INTERRUPTS YOUR PATH!");
         }
     }
 
-    // --- 3. CHECK BOSS DEFEAT CONDITION ---
+    // Boss Check
     if (nextID == 999) {
-        if (currentStats.reputation < 30 && currentStats.health < 60 && currentStats.energy < 50) {
+        if (currentStats.reputation < 30 || currentStats.health < 60 || currentStats.energy < 50) {
             nextID = 997; 
             gameLog.push_back(">> You were too weak to defeat Zolver.");
+            gameWon = false;
+        } else {
+            gameWon = true; 
         }
     }
 
-    // --- 4. APPLY NEXT NODE & REWARDS ---
+    // Apply Node
     if (storyMap.find(nextID) != storyMap.end()) {
         currentNode = storyMap[nextID];
-        
         currentStats.health += currentNode->healthChange;
         currentStats.energy += currentNode->energyChange;
         currentStats.hunger += currentNode->hungerChange;
         currentStats.reputation += currentNode->reputationChange;
         currentStats.dayCount += currentNode->dayChange;
 
-        if (currentNode->rewardItem == "Meat") {
-            inventory.addItem(Item("Meat", FOOD, 30, 1));
-            gameLog.push_back(">> GAINED: Meat");
-        }
-        else if (currentNode->rewardItem == "Herbs") {
-            inventory.addItem(Item("Herbs", HERB, 20, 1));
-            gameLog.push_back(">> GAINED: Herbs");
+        // FIXED: REWARDS (Added Herbs/Meat logic)
+        if (currentNode->rewardItem == "Meat") { inventory.addItem(Item("Meat", FOOD, 30, 1)); gameLog.push_back(">> GAINED: Meat"); }
+        if (currentNode->rewardItem == "Herbs") { inventory.addItem(Item("Herbs", HERB, 50, 1)); gameLog.push_back(">> GAINED: Herbs"); }
+        
+        // Specific Node Rewards (Bear/Wolf/Snake/Pack/FastCrossing)
+        // 9021 (Bear Win), 2001/801 (Wolf Win), 18 (Pack), 110 (Ice), 111 (Snake/Bank)
+        if (currentNode->id == 9021 || currentNode->id == 2001 || currentNode->id == 801 || currentNode->id == 18 || currentNode->id == 110 || currentNode->id == 111) {
+             if (!inventory.hasItem("Herbs")) inventory.addItem(Item("Herbs", HERB, 50, 1)); 
+             if (!inventory.hasItem("Meat")) inventory.addItem(Item("Meat", FOOD, 30, 1));
+             gameLog.push_back(">> GAINED: Meat & Herbs");
         }
 
-        if (currentNode->id == 9021 || currentNode->id == 2001) { 
-             inventory.addItem(Item("Herbs", HERB, 20, 1));
-             gameLog.push_back(">> GAINED: Herbs (Bonus)");
-        }
+        targetText = currentNode->text; textCharIndex = 0; currentDisplayedText = ""; textFinished = false;
     }
     
-    // --- 5. SFX TRIGGERS (UPDATED) ---
+    // SFX
     if (currentNode->id == 7) playSound("howl_sfx.mp3", "sfx");
     if (currentNode->id == 8 || currentNode->id == 20 || currentNode->id == 30) playSound("fight_sfx.mp3", "sfx");
-    if (currentNode->id == 901) playSound("wind_sfx.mp3", "sfx");
-    if (currentNode->id == 902) playSound("bear_sfx.mp3", "sfx");
+    if (currentNode->id == 901 || currentNode->id == 9011 || currentNode->id == 9012) playSound("wind_sfx.mp3", "sfx");
+    if (currentNode->id == 902 || currentNode->id == 9021 || currentNode->id == 9022) playSound("bear_sfx.mp3", "sfx");
+    if (currentNode->id == 110) playSound("ice_sfx.mp3", "sfx");   
+    if (currentNode->id == 111) playSound("snake_sfx.mp3", "sfx"); 
     
-    // NEW: Level 11 Specific Sounds
-    if (currentNode->id == 110) playSound("ice_sfx.mp3", "sfx");   // Ice Break
-    if (currentNode->id == 111) playSound("snake_sfx.mp3", "sfx"); // Snake Hiss
-    
+    if (!gameWon && (currentStats.health <= 0 || currentStats.hunger >= 100 || currentStats.energy <= 0)) {
+        gameOver = true;
+        currentNode = storyMap[997]; 
+    } else if (currentNode->id == 997) {
+        gameOver = true; 
+    }
+
     updateMusicSystem();
     ClampStats(currentStats);
-
-    // --- 6. DEATH CHECKS ---
-    if (currentStats.health <= 0 || currentStats.hunger >= 100) {
-        gameOver = true;
-        currentNode = storyMap[996]; // Died
-        updateMusicSystem();
-    }
-    else if (currentNode->id == 997) {
-        gameOver = true;
-        // Defeat (Boss)
-        updateMusicSystem();
-    }
 }
 
 void GameEngine::checkForRandomEvents(int nextNodeID) { }
@@ -504,13 +414,9 @@ void GameEngine::checkForRandomEvents(int nextNodeID) { }
 
 void GameEngine::addNode(int id, std::string text, std::string img, int h, int e, int hu, int r, int d, std::string req, std::string rew) {
     StoryNode* node = new StoryNode(id, text, img);
-    node->healthChange = h;
-    node->energyChange = e;
-    node->hungerChange = hu;
-    node->reputationChange = r;
-    node->dayChange = d;
-    node->requiredItem = req;
-    node->rewardItem = rew;
+    node->healthChange = h; node->energyChange = e; node->hungerChange = hu;
+    node->reputationChange = r; node->dayChange = d;
+    node->requiredItem = req; node->rewardItem = rew;
     storyMap[id] = node;
 }
 
@@ -518,12 +424,12 @@ void GameEngine::connect(int parentID, std::string choiceText, int childID) {
     if (storyMap.count(parentID)) storyMap[parentID]->children.push_back({choiceText, childID});
 }
 
-void GameEngine::cleanup() {
-    for(auto const& [key, val] : storyMap) delete val;
-    storyMap.clear();
+void GameEngine::cleanup() { 
+    for(auto const& [key, val] : storyMap) delete val; storyMap.clear(); 
 }
 
 void GameEngine::initGame() {
+    cleanup();
     srand(time(0));
     
     currentStats = WolfStats(); 
@@ -680,10 +586,10 @@ void GameEngine::initGame() {
     connect(13, "Train", 1301);   
     connect(13, "Explore", 1302); 
 
-    addNode(1301, "You push your muscles to failure and beyond. When you return, the pack will respect this power.", "13.png", 0, 0, -20, +15, 0, "None", "None");
+    addNode(1301, "You push your muscles to failure and beyond. When you return, the pack will respect this power.", "13.png", 0, -5, +5, +15, 0, "None", "None");
     connect(1301, "Continue", 14);
 
-    addNode(1302, "You scour the area. You chew on bitter medicinal roots and manage to bag some small game.", "13.png", +10, 0, -20, 0, 0, "None", "Meat");
+    addNode(1302, "You scour the area. You chew on bitter medicinal roots and manage to bag some small game.", "13.png", +10, -5, +5, 0, 0, "None", "Meat");
     connect(1302, "Continue", 14);
 
     addNode(14, "LEVEL 14: Human Scent\nAcrid and chemical. The scent of smoke and tanned leather. Man. The most dangerous predator is near.", "14.png", 0, 0, 0, 0, 1);
@@ -730,12 +636,18 @@ void GameEngine::initGame() {
     connect(22, "Walk Alone", 23);
 
     addNode(23, "LEVEL 23: Leader's Trial\nYour new pack is restless. Chaos threatens your order. A leader must be firm, or the pack will devour itself.", "23.png", 0, 0, 0, 10, 1);
-    connect(23, "Protect Pack", 24);
-    connect(23, "Command Strictly", 24);
+    connect(23, "Protect Pack", 2301);
+    connect(23, "Command Strictly", 2302);
+    addNode(2301, "You Protect the Pack.", "23.png", 0, -10, 0, +10, 0); 
+    connect(2301, "Continue", 24);
+    addNode(2302, "You commanded strictly.", "23.png", 0, 0, 0, -15, 0); 
+    connect(2302, "Continue", 24);
 
     addNode(24, "LEVEL 24: Territory Invasion\nZolver's scouts have sent his scouts. They tear at your borders. If you yield ground, you look weak.", "24.png", 0, 0, 0, 0, 1);
     connect(24, "Defend Territory", 25);
-    connect(24, "Retreat", 25);
+    connect(24, "Retreat", 2402);
+    addNode(2402, "You retreated. Lost respect.", "4(b).png", 0, 0, 0, -15, 0); 
+    connect(2402, "Continue", 25);
 
     addNode(25, "LEVEL 25: Strength of Bonds\nThe pack is solidifying. They move as one entity now. Unity is your greatest weapon against the coming storm.", "25.png", 0, 0, 0, 5, 1);
     connect(25, "Bond with Pack", 26);
@@ -799,6 +711,6 @@ void GameEngine::initGame() {
     connect(9022, "Catch your breath...", -99);
     
     currentNode = storyMap[1];
-
+    targetText = currentNode->text;
     updateMusicSystem();
 }
