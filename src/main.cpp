@@ -11,8 +11,8 @@
 
 namespace fs = std::filesystem;
 
-const int WINDOW_WIDTH = 1280;
-const int WINDOW_HEIGHT = 720;
+const int WINDOW_WIDTH = 1920;
+const int WINDOW_HEIGHT = 1080;
 
 GameEngine engine;
 bool showInventory = false;
@@ -507,8 +507,8 @@ int main() {
         else if (engine.currentState == STATE_REST || engine.currentState == STATE_SCAVENGE) {
             
             unsigned int bgTex = 0;
-            if (engine.currentState == STATE_REST) bgTex = engine.getGeneralTexture("rest_screen.png");
-            else bgTex = engine.getGeneralTexture("scavenge_screen.png");
+            if (engine.currentState == STATE_REST) bgTex = engine.getGeneralTexture("resting.png");
+            else bgTex = engine.getGeneralTexture("scavenging.png");
 
             if (bgTex == 0) bgTex = menuBg; 
             DrawBackgroundCover(bgTex, display_w, display_h);

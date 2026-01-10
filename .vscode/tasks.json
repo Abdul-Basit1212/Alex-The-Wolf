@@ -28,10 +28,11 @@
 
                 // --- 4. OUTPUT ---
                 "-o",
-                "${workspaceFolder}\\AlexTheWolf.exe",
+                "${workspaceFolder}/AlexTheWolf.exe",
 
                 // --- 5. LIBRARIES ---
                 "-L${workspaceFolder}/lib",
+                "-L${workspaceFolder}/Alex-The-Wolf-master/lib",
                 "-lglfw3",
                 "-lgdi32",
                 "-lopengl32",

@@ -111,7 +111,11 @@ void GameEngine::updateMusicSystem() {
         desiredTrack = "menu_bgm.mp3";
     }
     else {
-        desiredTrack = "main_bgm.mp3"; 
+        if(currentNode && (currentNode->id >= 26 && currentNode->id <=30) || (currentNode->id >= 2601 && currentNode->id <= 3002)) {
+            desiredTrack = "endgame_bgm.mp3";
+        }else{
+            desiredTrack = "main_bgm.mp3"; 
+        }
     }
     playBackgroundMusic(desiredTrack);
 }
@@ -397,7 +401,7 @@ void GameEngine::makeChoice(int choiceIndex) {
     
     if (!gameWon && (currentStats.health <= 0 || currentStats.hunger >= 100 || currentStats.energy <= 0)) {
         gameOver = true;
-        currentNode = storyMap[997]; 
+        currentNode = storyMap[996]; 
     } else if (currentNode->id == 997) {
         gameOver = true; 
     }
@@ -485,7 +489,7 @@ void GameEngine::initGame() {
     connect(2, "Move Fast", 3);      
 
     // --- LEVEL 3: The First Hunger ---
-    addNode(3, "LEVEL 3: The First Hunger\nYour stomach twists in knots. It has been days since the kill. You need to eat soon, or your body will fail you.", "3.png", -5, -10, 0, 5, 1);
+    addNode(3, "LEVEL 3: The First Hunger\nYour stomach twists in knots. It has been days since the kill. You need to eat soon, or your body will fail you.", "3.png", -5, -5, 0, 5, 1);
     connect(3, "Hunt Rabbit", 301);     
     connect(3, "Forage Herbs", 302);    
 
@@ -494,7 +498,7 @@ void GameEngine::initGame() {
     connect(301, "Continue", 4);
 
     // Branch B: Forage Herbs
-    addNode(302, "Beneath the ice-crusted brush, you find green shoots. They are bitter, but they possess the old magic of healing.", "3(b).png", 0, 0, -10, 0, 0, "None", "Herbs");
+    addNode(302, "Beneath the ice-crusted brush, you find green shoots. They are bitter, but they possess the old magic of healing.", "3(b).png", 0, 0, 0, 0, 0, "None", "Herbs");
     connect(302, "Continue", 4);    
 
     // --- LEVEL 4: Silent Trees ---
@@ -507,7 +511,7 @@ void GameEngine::initGame() {
     connect(401, "Continue", 5);
 
     // Branch B: Run
-    addNode(402, "You explode into a sprint, tearing through the brambles. Lungs burning, you put miles between you and the eyes in the dark.", "4(b).png", -5, -15, +10, 0, 0);
+    addNode(402, "You explode into a sprint, tearing through the brambles. Lungs burning, you put miles between you and the eyes in the dark.", "4(b).png", -5, -10, +10, 0, 0);
     connect(402, "Continue", 5);
 
     addNode(5, "LEVEL 5: First Blood\nThe scent of raw meat is intoxicating. Do you feast now to heal, or save rations for the cruel night?", "5.png", 0, 0, 0, 0, 1);
@@ -527,11 +531,11 @@ void GameEngine::initGame() {
     connect(6, "Stay Alert", 602); 
 
     // Branch A: Sleep
-    addNode(601, "You curl into a tight ball to preserve heat. You sleep deeply, restoring your health and energy.", "6(a).png", +15, +25, 0, 0, 0);
+    addNode(601, "You curl into a tight ball to preserve heat. You sleep deeply, restoring your health and energy.", "6(a).png", +15, +30, 0, 0, 0);
     connect(601, "Continue", 7);
 
     // Branch B: Stay Alert
-    addNode(602, "You force your eyes open, watching the shadows. You are tired, but you are safe.", "6.png", 0, 0, -10, +10, 0);
+    addNode(602, "You force your eyes open, watching the shadows. You are tired, but you are safe.", "6.png", 0, -5, 0, +10, 0);
     connect(602, "Continue", 7);
  
     // LEVEL 7: A Distant Howl
@@ -550,10 +554,10 @@ void GameEngine::initGame() {
     connect(8, "Fight Back", 801); 
     connect(8, "Escape", 802);     
 
-    addNode(801, "You fought fiercely, teeth meeting fur and bone. The rogue falls. You claim the spoils of victory.", "19.png", -20, 0, -20, 0, 0, "None", "Meat");
+    addNode(801, "You fought fiercely, teeth meeting fur and bone. The rogue falls. You claim the spoils of victory.", "19.png", -20, -15, 0, 0, 0, "None", "Meat");
     connect(801, "Continue", 9);
 
-    addNode(802, "You scramble away, battered and bleeding. You escaped with your life, but nothing else.", "4(b).png", -10, 0, -30, 0, 0, "None", "None");
+    addNode(802, "You scramble away, battered and bleeding. You escaped with your life, but nothing else.", "4(b).png", -10,-20, +5, -5, 0, "None", "None");
     connect(802, "Continue", 9);    
 
     addNode(9, "LEVEL 9: Bleeding Path\nBright red spots mark your trail. The pain is a dull throb. You must decide how to handle your injuries.", "9.png", 0, 0, 0, 0, 1, "None", "Meat");
@@ -566,12 +570,12 @@ void GameEngine::initGame() {
     connect(10, "Follow Bank (Slow)", 111);
 
     // 110: Ice
-    addNode(110, "LEVEL 11A: Thin Ice\nThe ice screams and gives way! You plunge into the freezing water, clutching the carcass you found.", "11 (a).png", -5, 0, 0, 0, 0, "None", "Meat");
+    addNode(110, "LEVEL 11A: Thin Ice\nThe ice screams and gives way! You plunge into the freezing water, clutching the carcass you found.", "11 (a).png", -5, 0, 0, 10, 0, "None", "Meat");
     connect(110, "Scramble Up", 12); 
     connect(110, "Swim", 12);
 
     // 111: Bank
-    addNode(111, "LEVEL 11B: Muddy Bank\nThe mud drags at your paws. A viper strikes from the reeds! You recoil, but the venom burns.", "11(b).png", -15, -10, 0, 10, 1, "None", "Meat");
+    addNode(111, "LEVEL 11B: Muddy Bank\nThe mud drags at your paws. A viper strikes from the reeds! You recoil, but the venom burns.", "11(b).png", -15, -10, 0, 5, 1, "None", "Meat");
     connect(111, "Trudge On", 12);
 
     // LEVEL 12: Lonely Stars
@@ -686,6 +690,7 @@ void GameEngine::initGame() {
     // ENDINGS
     addNode(999, "VICTORY: ALPHA LEGEND\nYou have torn the tyrant down. The territory is yours. Your legend begins now.", "victory.png", 0, 0, 0, 0, 0);
     addNode(997, "GAME OVER\nThe cold takes you. Your journey ends here, buried beneath the snow.", "defeat.png", 0, 0, 0, 0, 0);
+    addNode(996, "GAME OVER\nYou didn't make it.", "died.png", 0, 0, 0, 0, 0);
 
     // --- EVENTS ---
     addNode(901, "EVENT: BLIZZARD\nThe sky turns white. The wind screams, erasing the world in a blinding vortex of ice.", "blizzard (a).png", 0, 0, 0, 0, 0);
