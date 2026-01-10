@@ -8,6 +8,8 @@
 #include <iostream>
 #include <algorithm>
 #include <deque>
+#include <windows.h> // Required for Audio
+#include <mmsystem.h> // Required for Audio
 
 // ==========================================
 // ENUMS & DATA STRUCTURES
@@ -82,9 +84,9 @@ struct WolfStats {
     int lastScavengeLevel;
     bool crossedRiverIce;
     bool hasPack;
-    bool blizzardTriggered; // Keep for specific flags if needed
+    bool blizzardTriggered; 
     bool bearTriggered;
-    bool eventHappened;     // NEW: Tracks if ANY event has occurred this game
+    bool eventHappened;     
 
     WolfStats() : health(100), energy(100), hunger(0), reputation(0), 
                   dayCount(1), packSize(0), lastRestLevel(-10), lastScavengeLevel(-10),
@@ -164,6 +166,9 @@ public:
     std::map<std::string, unsigned int> textureCache;
     std::map<std::string, std::pair<int, int>> textureSizeCache;
 
+    // Audio Data
+    std::string currentMusicAlias = "";
+
     // Core Functions
     void initGame();
     void cleanup();
@@ -189,6 +194,12 @@ public:
     unsigned int getGeneralTexture(std::string filename); 
     unsigned int loadTextureFromFile(const char* filename); 
     std::pair<int, int> getTextureSize(std::string path);
+
+    // Audio Utils (NEW)
+    void playSound(std::string filename, std::string alias, bool loop = false);
+    void stopSound(std::string alias);
+    void playBackgroundMusic(std::string trackName);
+    void updateMusicSystem();
 
     // Helpers
     std::string getFinalTitle();

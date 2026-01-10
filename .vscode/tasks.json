@@ -5,37 +5,38 @@
             "label": "C/C++: g++.exe build active file",
             "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
             "args": [
-    "-fdiagnostics-color=always",
-    "-g",
-    // --- 1. YOUR SOURCE FILES ---
-    "${workspaceFolder}/src/main.cpp",
-    "${workspaceFolder}/src/GameEngine.cpp",
-    "${workspaceFolder}/src/Inventory.cpp",
-    "${workspaceFolder}/src/EventQueue.cpp",
+                "-fdiagnostics-color=always",
+                "-g",
+                // --- 1. YOUR SOURCE FILES ---
+                "${workspaceFolder}/src/main.cpp",
+                "${workspaceFolder}/src/GameEngine.cpp",
+                "${workspaceFolder}/src/Inventory.cpp",
+                "${workspaceFolder}/src/EventQueue.cpp",
 
-    // --- 2. IMGUI SOURCE FILES (Explicitly listed) ---
-    "${workspaceFolder}/src/imgui/imgui.cpp",
-    "${workspaceFolder}/src/imgui/imgui_draw.cpp",
-    "${workspaceFolder}/src/imgui/imgui_tables.cpp",
-    "${workspaceFolder}/src/imgui/imgui_widgets.cpp",
-    "${workspaceFolder}/src/imgui/imgui_impl_glfw.cpp",
-    "${workspaceFolder}/src/imgui/imgui_impl_opengl3.cpp",
+                // --- 2. IMGUI SOURCE FILES (Explicitly listed) ---
+                "${workspaceFolder}/src/imgui/imgui.cpp",
+                "${workspaceFolder}/src/imgui/imgui_draw.cpp",
+                "${workspaceFolder}/src/imgui/imgui_tables.cpp",
+                "${workspaceFolder}/src/imgui/imgui_widgets.cpp",
+                "${workspaceFolder}/src/imgui/imgui_impl_glfw.cpp",
+                "${workspaceFolder}/src/imgui/imgui_impl_opengl3.cpp",
 
-    // --- 3. INCLUDE PATHS ---
-    "-I${workspaceFolder}/include",
-    "-I${workspaceFolder}/include/imgui/", 
-    // ^ This line fixes the "imgui.h not found" error
+                // --- 3. INCLUDE PATHS ---
+                "-I${workspaceFolder}/include",
+                "-I${workspaceFolder}/include/imgui/", 
+                // ^ This line fixes the "imgui.h not found" error
 
-    // --- 4. OUTPUT ---
-    "-o",
-    "${fileDirname}\\${fileBasenameNoExtension}.exe",
+                // --- 4. OUTPUT ---
+                "-o",
+                "${fileDirname}\\${fileBasenameNoExtension}.exe",
 
-    // --- 5. LIBRARIES ---
-    "-L${workspaceFolder}/lib",
-    "-lglfw3",
-    "-lgdi32",
-    "-lopengl32",
-    "-limm32"
+                // --- 5. LIBRARIES ---
+                "-L${workspaceFolder}/lib",
+                "-lglfw3",
+                "-lgdi32",
+                "-lopengl32",
+                "-limm32",
+                "-lwinmm",
 ],
             "options": {
                 "cwd": "${fileDirname}"

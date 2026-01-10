@@ -79,6 +79,7 @@ int main() {
     setupImGuiStyle();
 
     engine.initGame(); 
+    engine.updateMusicSystem(); // Start playing menu music
     unsigned int menuBg = engine.getGeneralTexture("start_screen.png"); 
     
     // UI ICONS (Explicit Paths to avoid mixups)

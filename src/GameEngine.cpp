@@ -6,7 +6,7 @@
 #include <vector>
 #include <fstream> 
 #include <glfw3.h> 
-#include <windows.h> 
+#include <windows.h> // For Audio
 
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
@@ -90,6 +90,105 @@ std::pair<int, int> GameEngine::getTextureSize(std::string path) {
 }
 
 // =========================================================
+// AUDIO SYSTEM
+// =========================================================
+
+// =========================================================
+// AUDIO SYSTEM
+// =========================================================
+
+void GameEngine::playSound(std::string filename, std::string alias, bool loop) {
+    // 1. Close any existing sound on this alias to prevent conflicts
+    std::string stopCmd = "close " + alias;
+    mciSendString(stopCmd.c_str(), NULL, 0, NULL);
+
+    // 2. Smart Search for the Audio File
+    std::string fn = filename;
+    std::vector<std::string> pathsToCheck = {
+        "Assets/Sounds/" + fn,          // <--- Your new folder
+        "assets/sounds/" + fn,          // Lowercase check
+        "Sounds/" + fn,                 // Legacy check
+        "../Assets/Sounds/" + fn,       // Up one level (for build folders)
+        "../assets/sounds/" + fn,
+        fn                              // Root
+    };
+
+    std::string validPath = "";
+    for (const auto& path : pathsToCheck) {
+        std::ifstream check(path);
+        if (check.good()) {
+            validPath = path;
+            // Debug output to confirm it found the file
+            std::cout << "Loaded Sound: " << validPath << std::endl; 
+            break;
+        }
+    }
+
+    if (validPath.empty()) {
+        std::cout << "Sound NOT found: " << filename << " (Checked Assets/Sounds/)" << std::endl;
+        return;
+    }
+
+    // 3. Open the file found at 'validPath'
+    std::string openCmd = "open \"" + validPath + "\" type mpegvideo alias " + alias;
+    MCIERROR err = mciSendString(openCmd.c_str(), NULL, 0, NULL);
+    if (err) {
+        char errBuf[256];
+        mciGetErrorString(err, errBuf, 256);
+        std::cout << "Audio Error (Open): " << errBuf << std::endl;
+        return;
+    }
+
+    // 4. Play
+    std::string playCmd = "play " + alias;
+    if (loop) playCmd += " repeat";
+    mciSendString(playCmd.c_str(), NULL, 0, NULL);
+}
+
+void GameEngine::stopSound(std::string alias) {
+    std::string cmd = "close " + alias;
+    mciSendString(cmd.c_str(), NULL, 0, NULL);
+}
+
+void GameEngine::playBackgroundMusic(std::string trackName) {
+    if (currentMusicAlias == trackName) return; 
+
+    if (!currentMusicAlias.empty()) stopSound("bgm");
+
+    currentMusicAlias = trackName;
+    if (!trackName.empty()) {
+        playSound(trackName, "bgm", true);
+    }
+}
+
+void GameEngine::updateMusicSystem() {
+    std::string desiredTrack = "";
+
+    if (currentState == STATE_MENU || currentState == STATE_INTRO) {
+        desiredTrack = "menu_bgm.mp3";
+    }
+    else if (gameOver) {
+        // Check if it's the "Defeat" (Boss) or "Died" (General) node
+        if (currentNode && currentNode->id == 997) desiredTrack = "victory_bgm.mp3"; // Boss Defeat music
+        else desiredTrack = "victory_bgm.mp3"; // Or a specific "died" track if you have one
+    }
+    else if (gameWon) {
+        desiredTrack = "victory_bgm.mp3";
+    }
+    else if (currentState == STATE_GAMEPLAY || currentState == STATE_MAP || currentState == STATE_REST || currentState == STATE_SCAVENGE) {
+        if (currentNode) {
+            if (currentNode->id >= 26 && currentNode->id <= 30) {
+                desiredTrack = "endgame_bgm.mp3"; 
+            } else {
+                desiredTrack = "main_bgm.mp3"; 
+            }
+        }
+    }
+
+    playBackgroundMusic(desiredTrack);
+}
+
+// =========================================================
 // INPUT HANDLING
 // =========================================================
 
@@ -138,6 +237,7 @@ void GameEngine::undoLastAction() {
     
     gameOver = false; 
     gameWon = false;
+    updateMusicSystem(); 
 }
 
 void GameEngine::saveGameToFile(std::string filename) {
@@ -200,6 +300,7 @@ void GameEngine::loadGameFromFile(std::string filename) {
     }
     file.close();
     gameLog.push_back(">> GAME LOADED");
+    updateMusicSystem(); 
 }
 
 // =========================================================
@@ -307,30 +408,25 @@ void GameEngine::makeChoice(int choiceIndex) {
         } else {
             currentNode = storyMap[1]; 
         }
+        updateMusicSystem();
         return; 
     }
 
     // --- 2. RANDOM EVENT TRIGGER ---
-    bool isTransitioningToEnding = (nextID == 997 || nextID == 999);
+    bool isTransitioningToEnding = (nextID == 997 || nextID == 999 || nextID == 996);
     int eventID = -1;
 
     if (!isTransitioningToEnding && nextID != -99) {
-        // STRICT RANGE CHECKS
-        
-        // Blizzard: Levels 9-12
         if (nextID >= 9 && nextID <= 12 && !currentStats.eventHappened) {
             int roll = rand() % 100;
             if (roll < 30) eventID = 901; 
         }
-        // Bear: Levels 13-16
         else if (nextID >= 13 && nextID <= 16 && !currentStats.eventHappened) {
             int roll = rand() % 100;
             if (roll < 30) eventID = 902;
         }
-        // Force Event: ONLY if entering Level 17 (Leaving Zone 16) and nothing happened
-        // Fixed: Use '==' to avoid triggering on branch IDs (101, 102)
         else if (nextID == 17 && !currentStats.eventHappened) {
-            eventID = 902; // Force Bear
+            eventID = 902; 
         }
 
         if (eventID != -1) {
@@ -341,18 +437,24 @@ void GameEngine::makeChoice(int choiceIndex) {
         }
     }
 
-    // --- 3. APPLY NEXT NODE & REWARDS ---
+    // --- 3. CHECK BOSS DEFEAT CONDITION ---
+    if (nextID == 999) {
+        if (currentStats.reputation < 30 && currentStats.health < 60 && currentStats.energy < 50) {
+            nextID = 997; 
+            gameLog.push_back(">> You were too weak to defeat Zolver.");
+        }
+    }
+
+    // --- 4. APPLY NEXT NODE & REWARDS ---
     if (storyMap.find(nextID) != storyMap.end()) {
         currentNode = storyMap[nextID];
         
-        // Update Stats
         currentStats.health += currentNode->healthChange;
         currentStats.energy += currentNode->energyChange;
         currentStats.hunger += currentNode->hungerChange;
         currentStats.reputation += currentNode->reputationChange;
         currentStats.dayCount += currentNode->dayChange;
 
-        // --- ITEM REWARD LOGIC (Was missing) ---
         if (currentNode->rewardItem == "Meat") {
             inventory.addItem(Item("Meat", FOOD, 30, 1));
             gameLog.push_back(">> GAINED: Meat");
@@ -362,22 +464,35 @@ void GameEngine::makeChoice(int choiceIndex) {
             gameLog.push_back(">> GAINED: Herbs");
         }
 
-        // Manual Multi-Reward Override for Bosses (Give both!)
         if (currentNode->id == 9021 || currentNode->id == 2001) { 
              inventory.addItem(Item("Herbs", HERB, 20, 1));
              gameLog.push_back(">> GAINED: Herbs (Bonus)");
         }
     }
     
+    // --- 5. SFX TRIGGERS (UPDATED) ---
+    if (currentNode->id == 7) playSound("howl_sfx.mp3", "sfx");
+    if (currentNode->id == 8 || currentNode->id == 20 || currentNode->id == 30) playSound("fight_sfx.mp3", "sfx");
+    if (currentNode->id == 901) playSound("wind_sfx.mp3", "sfx");
+    if (currentNode->id == 902) playSound("bear_sfx.mp3", "sfx");
+    
+    // NEW: Level 11 Specific Sounds
+    if (currentNode->id == 110) playSound("ice_sfx.mp3", "sfx");   // Ice Break
+    if (currentNode->id == 111) playSound("snake_sfx.mp3", "sfx"); // Snake Hiss
+    
+    updateMusicSystem();
     ClampStats(currentStats);
 
-    if (currentStats.health <= 0) {
+    // --- 6. DEATH CHECKS ---
+    if (currentStats.health <= 0 || currentStats.hunger >= 100) {
         gameOver = true;
-        currentNode = storyMap[997]; 
+        currentNode = storyMap[996]; // Died
+        updateMusicSystem();
     }
-    if (currentStats.hunger >= 100) {
+    else if (currentNode->id == 997) {
         gameOver = true;
-        currentNode = storyMap[997]; 
+        // Defeat (Boss)
+        updateMusicSystem();
     }
 }
 
@@ -683,6 +798,7 @@ void GameEngine::initGame() {
     addNode(9022, "THE ESCAPE\nYou scramble up a loose scree slope. The massive bear slides backward, roaring in frustration as you escape into the mist.", "4(b).png",-15, 0, 0, 0, 0);
     connect(9022, "Catch your breath...", -99);
     
-
     currentNode = storyMap[1];
+
+    updateMusicSystem();
 }
