@@ -1,7 +1,9 @@
 #pragma once
 #ifndef GAMEENGINE_H
 #define GAMEENGINE_H
-
+#define NOMINMAX
+#include <windows.h> 
+#include <mmsystem.h> 
 #include <string>
 #include <vector>
 #include <map>
